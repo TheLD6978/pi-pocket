@@ -10,6 +10,7 @@ import type {
     TaskId,
     Tx,
 } from "@earendil-works/pi-durable";
+import type { ContextManagementApi, ContextManagementCapability } from "./context-management.ts";
 import type { Browsers } from "./browser.ts";
 import type { Gallery } from "./gallery.ts";
 import type { Role, User } from "./config.ts";
@@ -284,6 +285,7 @@ export type CommandResult =
 
 /** Who ran a command and where, with the durable task that runs it: read and change documents through it. */
 export interface CommandContext {
+    readonly contextManagement: ContextManagementCapability;
     readonly user: Readonly<Pick<User, "id" | "name" | "role">>;
     readonly conversationId: ConversationId;
     readonly cwd: string;
@@ -317,6 +319,7 @@ export type ModelRequestShaper = (payload: unknown, model: Model<Api>) => unknow
 
 /** What the app gives its extensions. Extensions are reloaded on edit; the host is not. */
 export interface PocketHost {
+    readonly contextManagement: ContextManagementApi;
     readonly guard: LancetGuard;
     readonly approvals: Approvals;
     readonly agentDir: string;
@@ -546,6 +549,7 @@ export interface WebSession {
 
 /** A route request whose named path parameter resolved to a visible conversation. */
 export interface ConversationWebRequest extends WebRequest {
+    readonly contextManagement: ContextManagementCapability;
     readonly conversation: {
         readonly id: ConversationId;
         readonly title: string;

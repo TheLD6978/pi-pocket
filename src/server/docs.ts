@@ -576,6 +576,28 @@ export const SpendDoc = defineDoc<{
     initial: () => ({ people: {}, counted: {} }),
 });
 
+/** Durable auxiliary request intents and accounted responses. Never replay an uncertain intent. */
+export const ContextRequestsDoc = defineDoc<{
+    items: Record<
+        string,
+        {
+            id: string;
+            by: string;
+            model: { provider: string; modelId: string };
+            fingerprint: string;
+            result?: import("@earendil-works/pi-durable").JsonObject;
+        }
+    >;
+}>({
+    kind: "pocket.context-requests",
+    version: 1,
+    ...rebased,
+    scope: "conversation",
+    history: "latest",
+    fork: "initial",
+    initial: () => ({ items: {} }),
+});
+
 export type Lesson = {
     /** Short and stable: what Pi and people use to change or remove it. */
     id: string;

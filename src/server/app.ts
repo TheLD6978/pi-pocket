@@ -50,6 +50,7 @@ import { Browsers } from "./browser.ts";
 import type { BrowserState } from "./browser/page.ts";
 import { Collab, REACTIONS } from "./collab.ts";
 import { Commands } from "./commands.ts";
+import { ContextManagement } from "./context-management.ts";
 import { LinkedSessions } from "./linked-sessions.ts";
 import { APP_ROOT, ConfigStore, modulesWith, type User } from "./config.ts";
 import {
@@ -67,6 +68,7 @@ import {
     MemoryDoc,
     type SessionMeta,
     SessionsDoc,
+    SpendDoc,
     type SubagentRecord,
     SubagentsDoc,
     TurnsDoc,
@@ -294,6 +296,7 @@ export class PocketApp {
     loader!: ExtensionLoader;
     readonly commands = new Commands(this);
     readonly extensionCommands = new ExtensionCommands(this);
+    readonly contextManagement = new ContextManagement(this);
     readonly linkedSessions = new LinkedSessions(this);
     readonly collab = new Collab(this);
     readonly alerts = new Alerts(this);
@@ -713,6 +716,9 @@ export class PocketApp {
             }),
         );
         const host: PocketHost = {
+            contextManagement: Object.freeze({
+                forTask: this.contextManagement.forTask.bind(this.contextManagement),
+            }),
             guard: this.guard,
             approvals: this.approvals,
             agentDir: getAgentDir(),
@@ -961,7 +967,18 @@ export class PocketApp {
                 change.record.kind === UsageDoc.definition.kind &&
                 change.conversationId !== undefined
             ) {
-                this.spend.usageChanged(change.conversationId, change.value as UsageState | null);
+                const accounted = publication.changes.find(
+                    (item) =>
+                        item.type === "document" && item.record.kind === SpendDoc.definition.kind,
+                );
+
+                this.spend.usageChanged(
+                    change.conversationId,
+                    change.value as UsageState | null,
+                    accounted?.type === "document"
+                        ? (accounted.value as { people: Record<string, number> })
+                        : undefined,
+                );
 
                 // A team's top session with a limit shows the team's spend: it follows a linked session's too.
                 const root = this.rootOf(change.conversationId);

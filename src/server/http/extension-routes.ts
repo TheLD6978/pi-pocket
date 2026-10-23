@@ -112,6 +112,7 @@ export async function extensionRoute(
                           thinkingLevel: agent?.thinkingLevel ?? "off",
                       },
                       linkedSessions: app.linkedSessions.forRequest(id, scope),
+                      contextManagement: app.contextManagement.forRequest(id, scope, part.module),
                   };
         const input = {
             method: route.method,

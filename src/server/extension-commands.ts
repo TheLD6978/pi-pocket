@@ -3,6 +3,7 @@
  * again finds the same task, and a restart never runs a handler again, as it may have changed something.
  */
 import { randomUUID } from "node:crypto";
+import { basename } from "node:path";
 import {
     awaitWithContext,
     BACKGROUND_CONTEXT,
@@ -210,33 +211,47 @@ export class ExtensionCommands {
             throw new HttpError(403, "The person who ran this command no longer has access.");
         }
 
-        const answer = await awaitWithContext(
-            Promise.resolve(
-                command.handler(input.args, {
-                    user: { id: user.id, name: user.name, role: user.role },
-                    conversationId: runtime.conversationId,
-                    cwd: this.#app.cwdOf(runtime.conversationId),
-                    signal: runtime.signal,
-                    snapshot: runtime.snapshot.bind(runtime),
-                    context,
-                    commit: async (change) => {
-                        let answer: Awaited<ReturnType<typeof change>>;
+        const closed = new AbortController();
+        const lifetime = withAbortSignal(AbortSignal.any([runtime.signal, closed.signal]), context);
 
-                        // The callback's own answer would be a new state for the task: keep `change`'s apart.
-                        await runtime.commit(async (tx) => {
-                            answer = await change(tx);
+        try {
+            const answer = await awaitWithContext(
+                Promise.resolve(
+                    command.handler(input.args, {
+                        user: { id: user.id, name: user.name, role: user.role },
+                        conversationId: runtime.conversationId,
+                        cwd: this.#app.cwdOf(runtime.conversationId),
+                        signal: runtime.signal,
+                        contextManagement: this.#app.contextManagement.forCommand(
+                            runtime.conversationId,
+                            user.id,
+                            runtime.taskId,
+                            lifetime,
+                            basename(command.file, ".ts"),
+                        ),
+                        snapshot: runtime.snapshot.bind(runtime),
+                        context,
+                        commit: async (change) => {
+                            let answer: Awaited<ReturnType<typeof change>>;
 
-                            return undefined;
-                        }, context);
+                            // The callback's own answer would be a new state for the task: keep `change`'s apart.
+                            await runtime.commit(async (tx) => {
+                                answer = await change(tx);
 
-                        return answer!;
-                    },
-                }),
-            ),
-            context,
-        );
+                                return undefined;
+                            }, context);
 
-        return { ...feedback(answer), status: "done" };
+                            return answer!;
+                        },
+                    }),
+                ),
+                context,
+            );
+
+            return { ...feedback(answer), status: "done" };
+        } finally {
+            closed.abort();
+        }
     }
 
     /**

@@ -18,6 +18,26 @@ Since 0.16.0 · Stable
 
 The running server's package version, including a pre-release suffix when present. It is read at server startup, not from files that an update replaced later. It is not the extension API level (`web.api`). Check that this member exists on older servers. A version-monitor extension can compare this value with a release obtained by its own server code, then show a notice; this member does not fetch updates or restart the server.
 
+## Context management
+
+### `contextManagement`
+
+Since 0.21.0 · Experimental
+
+`await host.contextManagement.forTask(api.taskId, context)` returns a capability for the actual live task and its requester. The public `ContextManagement` type provides `conversationId`, effective `context({ at? })`, fork-aware `entries(query?, limit?, cursor?)`, `update(Doc, callback)`, `summarize(key, options, signal?)`, and `summaryUsage(key)`. Human commands and conversation-bound routes receive the same capability directly, bound to their authenticated actor, never the session’s last requester.
+
+`update` permits only conversation-scoped `x.*` documents (the module’s namespace when known), capped at 8 MB. The callback mutates its draft and may return a value. Optional third argument `{ expectedTail: entryIdOrNull }` compares the latest visible transcript entry inside the same commit, before invoking the callback. A mismatch returns 409 without changing the document. Use the greatest entry ID in the context you read, or `null` for an empty transcript. `ContextView.entries` puts a compaction marker first, so its last array element is not necessarily the newest entry. Context reads use Pi Durable’s entries and effective contributions; do not mistake synthesized missing tool results in `messages` for completed stored tool calls. History pages contain 1–256 entries.
+
+`summarize` accepts `messages`, optional exact `provider/modelId`, `thinking`, `maxTokens` (1–32768), `timeoutMs` (1–600000), and `onProgress(receivedChars)`. It returns `{ id, response, model, interrupted? }`. The model defaults to the source model; alternates must be owner-approved subagent models. Thinking cannot exceed the source’s level. Inputs are capped at 2 MB. Responses are capped at 512 KB, with an oversized response discarded as an error while its reported usage still counts. There are at most 1000 durable request receipts and 16 MB of ledger data per conversation; admission reserves response space for unfinished requests. The optional timeout is an elapsed deadline, not merely a provider idle timeout. Keys have 1–512 characters and must identify immutable work. A repeated key with different input or actor is refused.
+
+`summaryUsage(key)` is a read-only lookup of one exact key in this source. It returns only `{ id, usage }` from a persisted result, or `undefined` for missing or in-flight work. It requires current source visibility and a live capability, but neither steering nor spend admission. It never returns response or error text and does not mutate the receipt. An extension can save keys before starting work, then reconcile reported usage by receipt id during its next authorized invocation after cancellation.
+
+Usage is counted once in conversation and person totals, including unsuccessful and aborted provider responses. A caller cancellation does not cancel the final accounting commit. An intent left uncertain by a crash returns an aborted response with `interrupted: true`, never a blind resend. Provider costs from an unreported response lost during a crash cannot be recovered. Callers must still be authorized after a summary finishes; expired or revoked callers cannot receive the response, though the usage and receipt still persist. Calls stop with their task/request lifetime; a cancelled optional signal stops the summary, not later authorized document updates.
+
+The [context-summary example](../../examples/context-summary.ts) runs a billed summary from a command without changing the transcript.
+
+This is the core mechanism under C1–C5; pruning policy and prompt transformations belong in an optional extension. Feature-detect this service on older servers.
+
 ## Folders
 
 ### `dataDir`

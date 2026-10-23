@@ -13,11 +13,27 @@
  * release. A member without it is stable. The reference is in `docs/extensions/reference/`. `test/public-types.ts`
  * fails when this file and Pi Pocket's code do not agree.
  */
-import type { Context } from "@earendil-works/chord";
-import type { Api, Model, ModelThinkingLevel } from "@earendil-works/pi-ai";
+import type { Context, Draft } from "@earendil-works/chord";
+import type {
+    Api,
+    AssistantMessage,
+    Message,
+    Model,
+    ModelThinkingLevel,
+    Usage,
+} from "@earendil-works/pi-ai";
 import type { ProviderConfig, Skill } from "@earendil-works/pi-coding-agent";
 import type {
     ConversationId,
+    ConversationDocToken,
+    ContextView,
+    Cursor,
+    EntryId,
+    EntryQuery,
+    EntryRecord,
+    JsonObject,
+    Page,
+    TaskId,
     DocumentReader,
     Extension,
     ModelRef,
@@ -93,6 +109,55 @@ export interface Module {
     pocketApi?: number;
 }
 
+/** A source-bound capability. All calls reject once its task or human request ends.
+ * @since 0.21.0
+ * @experimental
+ */
+export interface ContextManagement {
+    /** The authorized source. @since 0.21.0 @experimental */
+    readonly conversationId: ConversationId;
+    /** Effective context, including per-entry contributions. @since 0.21.0 @experimental */
+    context(options?: { at?: EntryId }): Promise<ContextView>;
+    /** Fork-aware history; pages contain at most 256 entries. @since 0.21.0 @experimental */
+    entries(
+        query?: Omit<EntryQuery, "conversationId">,
+        limit?: number,
+        cursor?: Cursor,
+    ): Promise<Page<EntryRecord, Cursor>>;
+    /** Atomically update an x.* conversation document (8 MB maximum). @since 0.21.0 @experimental */
+    update<T extends JsonObject, R>(
+        document: ConversationDocToken<T>,
+        change: (draft: Draft<T>) => R | Promise<R>,
+        options?: { expectedTail?: EntryId | null },
+    ): Promise<R>;
+    /** Read only the persisted usage and id for an exact summary key; missing/in-flight means undefined.
+     * @since 0.21.0
+     * @experimental
+     */
+    summaryUsage(key: string): Promise<{ id: string; usage: Usage } | undefined>;
+    /** Durable, deduplicated summary; usage is billed even if cancelled or unusable.
+     * @since 0.21.0
+     * @experimental
+     */
+    summarize(
+        key: string,
+        request: {
+            messages: readonly Message[];
+            model?: string;
+            thinking?: ModelThinkingLevel;
+            maxTokens?: number;
+            timeoutMs?: number;
+            onProgress?: (receivedChars: number) => void;
+        },
+        signal?: AbortSignal,
+    ): Promise<{
+        response: AssistantMessage;
+        model: ModelRef;
+        id: string;
+        interrupted?: boolean;
+    }>;
+}
+
 // ─── The host ────────────────────────────────────────────────────────────────
 
 /**
@@ -101,6 +166,13 @@ export interface Module {
  * @since 0.1.0
  */
 export interface Host {
+    /** Conversation-scoped history, extension documents and billed summaries.
+     * @since 0.21.0
+     * @experimental
+     */
+    readonly contextManagement: {
+        forTask(taskId: TaskId, context: Context): Promise<ContextManagement>;
+    };
     /**
      * Pi Pocket's data folder.
      * @since 0.1.0
@@ -1002,6 +1074,11 @@ export interface WebSession {
  * @since 0.16.0
  */
 export interface ConversationWebRequest extends WebRequest {
+    /** Context management bound to this authenticated request and source.
+     * @since 0.21.0
+     * @experimental
+     */
+    readonly contextManagement: ContextManagement;
     /**
      * Authoritative source settings for this request; omitted model means none is selected.
      * @since 0.16.0
@@ -1377,6 +1454,11 @@ export interface Command {
  * @since 0.14.0
  */
 export interface CommandContext {
+    /** Context management as the authenticated command runner.
+     * @since 0.21.0
+     * @experimental
+     */
+    readonly contextManagement: ContextManagement;
     /**
      * The person who ran the command.
      * @since 0.14.0

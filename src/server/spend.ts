@@ -95,13 +95,20 @@ export class Spend {
      * A conversation's usage changed: called from the commit listener, when whom Pi works for is who asked for this
      * work. Storing it waits for a moment.
      */
-    usageChanged(id: ConversationId, usage: UsageState | null): void {
+    usageChanged(
+        id: ConversationId,
+        usage: UsageState | null,
+        accounted?: { people: Record<string, number> },
+    ): void {
         const cost = usageCost(usage ?? undefined);
         const added = cost - (this.#costs.get(id) ?? 0);
 
         this.#costs.set(id, cost);
 
-        if (added > 0) {
+        if (accounted !== undefined) {
+            this.#people = { ...accounted.people };
+            this.#stopOverLimit();
+        } else if (added > 0) {
             this.#owe(id, this.#payer(id), added);
         }
 

@@ -45,6 +45,7 @@ These members are public:
 - `skillPaths()`, `skills(cwd)`
 - `heldBack(conversationId)`, `onLimitsChanged(listener)`
 - `linkedSessions`: `start`, `send`, `list` (experimental in 0.14, see [Experimental](#experimental))
+- `contextManagement.forTask`, and the bound command/conversation-route `contextManagement` capability (experimental in 0.19): effective history, extension-document updates with optional transcript-tail comparison, and billed summaries
 - `text`: `quoted`, `defang`
 - `thinkingLevels`
 - `fetchPublic(url, init)` (experimental, since 0.20.0)

@@ -101,6 +101,7 @@ test("the example extensions load as drop-ins, off until the owner turns them on
         listed.map((module) => [module.file, module.enabled]),
         [
             ["clock.ts", false],
+            ["context-summary.ts", false],
             ["my-words.ts", false],
             ["no-force-push.ts", false],
             ["read-page.ts", false],
@@ -110,6 +111,7 @@ test("the example extensions load as drop-ins, off until the owner turns them on
 
     for (const file of [
         "clock.ts",
+        "context-summary.ts",
         "my-words.ts",
         "no-force-push.ts",
         "read-page.ts",
@@ -148,4 +150,16 @@ test("the example extensions load as drop-ins, off until the owner turns them on
     const client = app.webs.clients(owner(app)).find((each) => each.module === "server-status");
 
     assert.ok(client !== undefined, "its browser module is there");
+
+    // An idle human command uses context management without starting a generation.
+    const empty = await newSession(app);
+    const before = await modelTexts(app, empty);
+    const result = await app.extensionCommands.run(empty, owner(app), {
+        commandId: app.webs.commands().find((command) => command.name === "context-summary")!.id,
+        args: "",
+        requestId: crypto.randomUUID(),
+    });
+
+    assert.equal(result.type, "card");
+    assert.deepEqual(await modelTexts(app, empty), before);
 });

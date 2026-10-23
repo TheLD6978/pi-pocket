@@ -58,6 +58,12 @@ To refuse a run, throw `web.error(status, message)`: the person who ran the comm
 
 ## The context
 
+### `contextManagement`
+
+Since 0.21.0 · Experimental
+
+The conversation’s [context-management capability](host.md#contextmanagement), bound to this command’s authenticated runner and handler lifetime. It can read effective history, update the module’s conversation documents and summarize immediately while Pi is idle, with core model policy and billing. Conversation-bound route requests expose the same member for their request lifetime.
+
 ### `user`
 
 ```ts

@@ -45,7 +45,7 @@ These members are public:
 - `skillPaths()`, `skills(cwd)`
 - `heldBack(conversationId)`, `onLimitsChanged(listener)`
 - `linkedSessions`: `start`, `send`, `list` (experimental in 0.14, see [Experimental](#experimental))
-- `contextManagement.forTask`, and the bound command/conversation-route `contextManagement` capability (experimental in 0.19): effective history, extension-document updates with optional transcript-tail comparison, and billed summaries
+- `contextManagement.forTask`, and the bound command/conversation-route `contextManagement` capability (experimental since 0.21): effective history, extension-document updates with optional transcript-tail comparison, billed summaries, and the `history` member
 - `text`: `quoted`, `defang`
 - `thinkingLevels`
 - `fetchPublic(url, init)` (experimental, since 0.20.0)
@@ -161,6 +161,8 @@ Since 0.19.0, these `pocket` members are experimental too: `panel`, `openPanel`,
 Since 0.22.0, these are experimental too: `web.publicPage` and `web.links`; `host.ask`, `hide`, `commandEnv`, and `browser`; `host.on`; `web.provide`, `use`, `onService`, `settings`, `setting`, and `onSettings`; `pocket.settings` and `onSettings`; and their types. So are the `browser` tool's `action` and target arguments, for hooks.
 
 Since 0.20.0, the session list's extension points are experimental: `pocket.sessionChips`, `sessionAction`, `sessionFilter`, and `sessionSearch`, `WebRequest.sessions`, and their types. So is `pocket.composerKey`, with `ComposerKeySpec` and `ComposerBox`, and so are `pocket.onConversation`, `messages`, and `reveal`, with `MessagesOptions`, `MessagePage`, and `MessageInfo`. So are `host.registerModelProvider`, and `host.fetchPublic` with `PublicFetchInit`.
+
+Since 0.21.0, `host.contextManagement` and its `ContextManagement` type are experimental. The `history` member and its types are part of that experimental capability. They add no top-level `host` member. A drop-in that uses them must feature-detect `contextManagement` and `history`, because a running server receives new members only after restart.
 
 ### Deprecated
 

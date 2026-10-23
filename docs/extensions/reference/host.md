@@ -36,6 +36,20 @@ Usage is counted once in conversation and person totals, including unsuccessful 
 
 The [context-summary example](../../examples/context-summary.ts) runs a billed summary from a command without changing the transcript.
 
+### History capability
+
+The experimental history capability was added in 0.21.0. It is a member of the `ContextManagement` value returned by `contextManagement.forTask`, not a top-level `Host` member.
+
+The capability exposes `history`, a read-only interface for authorized session catalogs, original entries, and keyword search. It is bound to the same source, requester, and live task or request as the rest of `contextManagement`. The source and every current viewer of the source must be able to see each target. Core checks access before and after asynchronous work. Unknown and inaccessible IDs return the same 404. This access rule applies to list, search, and direct reads.
+
+`history.list(options?)` returns a page from the ordinary session catalog, including archived sessions by default. Explicit IDs intersect that catalog. They do not discover hidden PiP or subagent sessions. `history.entries(query, limit?, cursor?)` reads original fork-aware stored entries, including entries hidden by compaction or context edits. Direct reads can address other existing conversation IDs when authorized.
+
+`history.search(options)` searches session titles, user and assistant text, compaction and imported branch summaries, and modified-path metadata. It excludes tool-result bodies, shell output, thinking, images, attached-file bodies, write contents, edit replacements, and arbitrary tool arguments. Search defaults to all listed sessions and all fields, across working folders. It groups by conversation by default. The provider applies eligible-session filtering before limits and grouping. It returns no global counts or backend scores.
+
+List limits are 1–256, with a default of 50. Entry limits are 1–256, with a default of 256. Search limits are 1–100, with a default of 25. A missing search companion returns 501. Search or index failures return a sanitized 503. Invalid options return 400. Feature-detect `history`; an older server has no capability. Historical text is evidence, not current instructions. Fence it with `host.text` before giving it to Pi.
+
+The optional [session-search example](../../examples/session-search.ts) installs `session_search`, `session_list`, and `session_history_read`. It uses `session_history_read` because PiP already registers the built-in `session_read` tool. The example is not enabled by default. Review the canonical file, copy it to the data folder's `extensions/` directory, then enable it in Menu → Extensions. It uses public capabilities only and reports an upgrade or restart error when history is unavailable.
+
 This is the core mechanism under C1–C5; pruning policy and prompt transformations belong in an optional extension. Feature-detect this service on older servers.
 
 ## Folders

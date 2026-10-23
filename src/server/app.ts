@@ -1,5 +1,5 @@
 /**
- * The Pi Pocket server core: one durable Harness over one SQLite file, shared by every session, every subagent, and
+ * The Pi Pocket server core: one durable Harness over the selected persistence provider, shared by every session, every subagent, and
  * every connected browser. Browsers attach to a conversation's committed view; nothing a browser sees exists only in
  * memory, except who is connected, who is typing, and which tool calls wait for approval.
  *
@@ -42,7 +42,6 @@ import {
 } from "@earendil-works/pi-durable";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
-import { openNodeSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite/node";
 import { CodingTools } from "@earendil-works/pi-durable/tools";
 import { Alerts } from "./alerts.ts";
 import { Attribution, type Missing } from "./attribution.ts";
@@ -87,6 +86,12 @@ import {
     type PocketHost,
     type WebAccess,
 } from "./host.ts";
+import { History } from "./history.ts";
+import {
+    openSqlitePersistence,
+    type OpenPersistence,
+    type PocketPersistence,
+} from "./persistence.ts";
 import { type GuardStatus, LancetGuard } from "./lancet.ts";
 import { takeLock } from "./lock.ts";
 import { Memory } from "./memory.ts";
@@ -261,6 +266,8 @@ export interface OpenOptions {
     dataDir: string;
     defaultCwd: string;
     supervised: boolean;
+    /** Server composition: select Durable storage and its optional native history-search companion once. */
+    openPersistence?: OpenPersistence;
     log?: (line: string) => void;
     /** Tests register scripted providers here. */
     configureModels?: (models: ModelRuntime) => void;
@@ -297,6 +304,7 @@ export class PocketApp {
     readonly commands = new Commands(this);
     readonly extensionCommands = new ExtensionCommands(this);
     readonly contextManagement = new ContextManagement(this);
+    readonly history = new History(this);
     readonly linkedSessions = new LinkedSessions(this);
     readonly collab = new Collab(this);
     readonly alerts = new Alerts(this);
@@ -388,7 +396,8 @@ export class PocketApp {
     #unsubscribeBrowsers: (() => void) | undefined;
     #lockFile: string;
     #releaseLock: (() => void) | undefined;
-    #openingStorage: Storage | undefined;
+    #persistence: PocketPersistence | undefined;
+    readonly #openPersistence: OpenPersistence;
     #closing: Promise<void> | undefined;
     readonly #log: (line: string) => void;
     readonly #configureModels: ((models: ModelRuntime) => void) | undefined;
@@ -404,6 +413,7 @@ export class PocketApp {
     readonly now: () => number;
 
     private constructor(options: OpenOptions) {
+        this.#openPersistence = options.openPersistence ?? openSqlitePersistence;
         this.#configureModels = options.configureModels;
         this.#home = options.home ?? (process.env.HOME || homedir());
         this.now = options.now ?? Date.now;
@@ -651,7 +661,9 @@ export class PocketApp {
             await app.#open();
         } catch (error) {
             if (app.#releaseLock !== undefined) {
-                await app.close();
+                await app
+                    .close()
+                    .catch((cleanup: unknown) => app.log(`Startup cleanup: ${describe(cleanup)}`));
             }
 
             throw error;
@@ -824,9 +836,10 @@ export class PocketApp {
         await this.#themeDefaultStillHere();
         await this.loader.loadAll();
 
-        const storage = await openNodeSqliteStorage(join(this.dataDir, "pocket.sqlite"));
+        this.#persistence = await this.#openPersistence({ dataDir: this.dataDir, context });
+        this.history.install(this.#persistence.historySearch);
+        const { storage } = this.#persistence;
 
-        this.#openingStorage = storage;
         this.harness = await Harness.open(
             storage,
             {
@@ -847,7 +860,13 @@ export class PocketApp {
             context,
         );
 
-        this.#openingStorage = undefined;
+        // Fatal Harness errors can close Storage before Pocket receives control. Companion cleanup issues no SQL.
+        void this.harness.closed
+            .then(() => this.history.close(context))
+            .catch((error: unknown) => {
+                this.log(`History cleanup: ${describe(error)}`);
+            });
+
         const conversations = await this.#recover(storage);
 
         await this.spend.load(conversations);
@@ -892,6 +911,7 @@ export class PocketApp {
         }
 
         await this.pip.tuneAll((line) => this.#log(line));
+        this.history.ready();
         // Work a previous process left unfinished continues now.
         this.harness.resume();
     }
@@ -3465,11 +3485,17 @@ export class PocketApp {
             let storageClosed = false;
 
             try {
+                // Stop companion work before normal Harness closure of the shared storage.
+                await this.history.close(context).catch((error: unknown) => {
+                    this.log(`History cleanup: ${describe(error)}`);
+                });
+
                 // Close writes no outcome: running work resumes when the next process opens the storage.
-                if (this.harness !== undefined) {
-                    await this.harness.close(context);
+                if (this.harness === undefined) {
+                    // Harness.open may already have closed it internally. Persistence close is idempotent.
+                    await this.#persistence?.storage.close(context);
                 } else {
-                    await this.#openingStorage?.close(context);
+                    await this.harness.close(context);
                 }
 
                 storageClosed = true;

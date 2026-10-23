@@ -109,11 +109,73 @@ export interface Module {
     pocketApi?: number;
 }
 
+/** Searchable original-history fields. @since 0.21.0 @experimental */
+export type HistoryField = "title" | "user" | "assistant" | "summary" | "modifiedPath";
+
+/** Current metadata for an ordinary catalog session. @since 0.21.0 @experimental */
+export interface HistorySession {
+    id: ConversationId;
+    title: string;
+    cwd: string;
+    createdAt: number;
+    updatedAt: number;
+    archived: boolean;
+}
+
+/** Session metadata filters; omitted archived includes both states. @since 0.21.0 @experimental */
+export interface HistoryFilter {
+    conversationIds?: readonly ConversationId[];
+    project?: string;
+    after?: number;
+    before?: number;
+    archived?: boolean;
+}
+
+/** A catalog page, newest creation first. @since 0.21.0 @experimental */
+export interface HistoryListOptions extends HistoryFilter {
+    limit?: number;
+    cursor?: Cursor;
+}
+
+/** Literal keyword search; no SQL or FTS operators. @since 0.21.0 @experimental */
+export interface HistorySearchOptions extends HistoryFilter {
+    text: string;
+    fields?: readonly HistoryField[];
+    groupBy?: "entry" | "conversation";
+    limit?: number;
+}
+
+/** One title or entry field that matched. @since 0.21.0 @experimental */
+export type HistoryMatchSource =
+    { kind: "title" } | { kind: "entry"; entryId: EntryId; field: Exclude<HistoryField, "title"> };
+
+/** A bounded match without backend-global scores or counts. @since 0.21.0 @experimental */
+export interface HistoryMatch {
+    session: HistorySession;
+    source: HistoryMatchSource;
+    snippet: string;
+}
+
+/** Read-only history, authorized for the requester and everyone who sees its bound source.
+ * @since 0.21.0
+ * @experimental
+ */
+export interface HistoryAccess {
+    /** Ordinary sessions only; default 50, maximum 256. @since 0.21.0 @experimental */
+    list(options?: HistoryListOptions): Promise<Page<HistorySession, Cursor>>;
+    /** Original fork-aware entries of an authorized target; maximum 256. @since 0.21.0 @experimental */
+    entries(query: EntryQuery, limit?: number, cursor?: Cursor): Promise<Page<EntryRecord, Cursor>>;
+    /** Keyword matches; default 25, maximum 100. Missing backend support is 501. @since 0.21.0 @experimental */
+    search(options: HistorySearchOptions): Promise<readonly HistoryMatch[]>;
+}
+
 /** A source-bound capability. All calls reject once its task or human request ends.
  * @since 0.21.0
  * @experimental
  */
 export interface ContextManagement {
+    /** Source-bound discovery, native search and read-only access to authorized histories. @since 0.21.0 @experimental */
+    readonly history: HistoryAccess;
     /** The authorized source. @since 0.21.0 @experimental */
     readonly conversationId: ConversationId;
     /** Effective context, including per-entry contributions. @since 0.21.0 @experimental */

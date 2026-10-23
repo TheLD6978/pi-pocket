@@ -28,6 +28,7 @@ import type { PocketApp } from "./app.ts";
 import type { User } from "./config.ts";
 import { ContextRequestsDoc, SpendDoc, TurnsDoc } from "./docs.ts";
 import { HttpError } from "./errors.ts";
+import type { HistoryAccess } from "./history.ts";
 import type { RequestActor } from "./extension-request.ts";
 import { isThinkingLevel, levelAtMost, resolveModel, THINKING_LEVELS } from "./models.ts";
 
@@ -47,6 +48,7 @@ export interface ContextSummary {
 }
 export interface ContextManagementCapability {
     readonly conversationId: ConversationId;
+    readonly history: HistoryAccess;
     context(options?: { at?: EntryId }): Promise<ContextView>;
     entries(
         query?: Omit<EntryQuery, "conversationId">,
@@ -202,8 +204,11 @@ export class ContextManagement implements ContextManagementApi {
             await app.harness.commit((tx) => authorize(tx, false), context);
         };
 
+        const history = app.history.bind({ source, by, context, check, current });
+
         return Object.freeze({
             conversationId: source,
+            history,
             context: async (options?: { at?: EntryId }) => {
                 await check();
                 const result = await (await app.conversation(source)).context(context, options);
@@ -229,14 +234,7 @@ export class ContextManagement implements ContextManagementApi {
                     );
                 }
 
-                await check();
-                const result = await (
-                    await app.conversation(source)
-                ).entries(query, limit, cursor, context);
-
-                await check();
-
-                return result;
+                return history.entries({ ...query, conversationId: source }, limit, cursor);
             },
             update: async <T extends JsonObject, R>(
                 document: ConversationDocToken<T>,

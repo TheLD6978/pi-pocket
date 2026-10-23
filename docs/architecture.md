@@ -122,12 +122,12 @@ Lessons Pi keeps across sessions are one document for the whole app, `MemoryDoc`
 
 1. Take the data folder's lock. Set up push, Pi's settings, and the HTTP settings for provider streams. The pid-only `harness.lock` keeps older readers compatible; its `.identity` sidecar binds the lock file to Linux process start time and boot ID, with age-based recovery for damaged files and Linux process-start checks when identity is unavailable.
 2. Load the models, and register the core tasks and every extension module that is on.
-3. Open the storage and the harness.
+3. Select persistence, then open the storage and the harness.
 4. `#recover`:
     - read the session list;
     - for each conversation, in turn: its run, agent, chat, who Pi works for (`attribution.recover`), and its subagents;
     - then write back, in one commit, the authors that a crash kept out of the authors documents (`attribution.repair`).
-5. Load spend.
+5. Activate the history companion after session recovery, then load spend.
 6. Subscribe to commits, approvals, and browser pages.
 7. Warm Lancet Guard.
 8. Resume the work the last process left unfinished.
@@ -221,7 +221,11 @@ People's values (since 0.22.0) go around Pi, never through it. `host.ask` is an 
 Extensions also hear the app and build on each other (since 0.22.0). `host.on` (`app-events.ts`) is fed where the app already learns of each change: session events from the commits of `pocket.sessions` (`#sessionEvents`, comparing the list before and after), runs from `pi.live` going busy and idle, and `message.sent` at the end of `Commands.submit`. A listener runs in a microtask with a frozen copy, so it can neither slow nor change the work. Services (`web.provide`, `web.use`) live on each module's `WebPart`: `use` reads the version that is on now, and `onService` listeners hear a provider's commit and removal. Settings (`web.settings`) are declared on the `WebPart` too, their values kept in config.json (`extensionSettings`), which is read before modules load; the owner's route checks each value against the fields (`extension-settings.ts`), and then the module (`onSettings`) and its tabs (`pocket:settings`) hear it.
 ## Context management
 
-`host.contextManagement.forTask(taskId, context)` derives its source and requester from a real live task. Commands and conversation-bound routes receive the same capability bound to their authenticated actor and lifetime. History delegates to Pi Durable’s effective context and fork-aware entries. Document updates accept only bounded `x.*` conversation documents, restricted to the module when known. The pruning workflow stays in extensions.
+`host.contextManagement.forTask(taskId, context)` derives its source and requester from a real live task. Commands and conversation-bound routes receive the same capability bound to their authenticated actor and lifetime. `history.ts` adds read-only session listing, original fork-aware entry reads, and keyword search. Core authorizes each target before querying and rechecks after asynchronous work. Both the requester and every current viewer of the source must see each target. Unknown and inaccessible IDs return the same 404. Lists and searches use the ordinary session catalog, including archived sessions by default; explicit IDs cannot expose hidden PiP or subagent sessions. Direct reads can address other authorized conversation IDs.
+
+`persistence.ts` selects the Pocket-owned persistence factory before `Harness.open`. The default factory pairs Durable storage with an optional native history companion. `history-index.ts` owns the SQLite derived index and recovery. `history-text.ts` defines the shared searchable corpus. The index uses existing `pocket.sqlite`, creates its derived schema on first search, catches up in bounded batches, and commits rows with checkpoints. It never changes Durable's storage interface or authoritative entries. Core builds eligible targets and their visible-entry cutoffs; the provider indexes only those targets and honors each cutoff. Search without a companion returns 501. Index failures return a sanitized 503 and do not invalidate Durable commits.
+
+Pocket enables the companion only after session recovery succeeds. Shutdown stops companion work before Harness closure. The optional `docs/examples/session-search.ts` consumer is installed and enabled separately. It provides search, list, and read tools. No history results enter prompts automatically. Document updates accept only bounded `x.*` conversation documents, restricted to the module when known. The pruning workflow stays in extensions.
 
 Auxiliary summaries admit a durable intent with a frozen payer/model and request fingerprint before calling the provider. Repeated work returns its receipt; an uncertain intent after a crash is not resent. Reported usage, the response receipt, `UsageDoc` and the payer’s `SpendDoc` counters commit atomically, even after cancellation. A usage publication carrying those spend counters refreshes `Spend` without billing it a second time.
 

@@ -106,7 +106,6 @@ test("the example extensions load as drop-ins, off until the owner turns them on
             ["no-force-push.ts", false],
             ["read-page.ts", false],
             ["server-status.ts", false],
-            ["session-search.ts", false],
         ],
     );
 
@@ -117,7 +116,6 @@ test("the example extensions load as drop-ins, off until the owner turns them on
         "no-force-push.ts",
         "read-page.ts",
         "server-status.ts",
-        "session-search.ts",
     ]) {
         await app.setExtensionEnabled(owner(app), file, true);
     }

@@ -48,8 +48,6 @@ The capability exposes `history`, a read-only interface for authorized session c
 
 List limits are 1–256, with a default of 50. Entry limits are 1–256, with a default of 256. Search limits are 1–100, with a default of 25. A missing search companion returns 501. Search or index failures return a sanitized 503. Invalid options return 400. Feature-detect `history`; an older server has no capability. Historical text is evidence, not current instructions. Fence it with `host.text` before giving it to Pi.
 
-The optional [session-search example](../../examples/session-search.ts) installs `session_search`, `session_list`, and `session_history_read`. It uses `session_history_read` because PiP already registers the built-in `session_read` tool. The example is not enabled by default. Review the canonical file, copy it to the data folder's `extensions/` directory, then enable it in Menu → Extensions. It uses public capabilities only and reports an upgrade or restart error when history is unavailable.
-
 This is the core mechanism under C1–C5; pruning policy and prompt transformations belong in an optional extension. Feature-detect this service on older servers.
 
 ## Folders

@@ -102,7 +102,6 @@ These examples work. `npm test` runs them (`test/docs-examples.test.ts`):
 - [examples/no-force-push.ts](examples/no-force-push.ts): a hook that stops some bash calls, and a prompt section that tells Pi so.
 - [examples/read-page.ts](examples/read-page.ts): a tool that reads a public web page with `host.fetchPublic`, and fences its text with `host.text`.
 - [examples/server-status.ts](examples/server-status.ts) with [examples/server-status.js](examples/server-status.js): a page on the rail, with a route that reads the machine's load and memory, and events that keep it live.
-- [examples/session-search.ts](examples/session-search.ts): opt-in `session_search`, `session_list`, and `session_history_read` tools for authorized Pocket session history. The reader uses a distinct name because PiP already registers `session_read`. Copy this canonical file to the data folder's `extensions/` directory, review it, then enable it in Menu → Extensions. It requires the experimental `contextManagement.history` capability; it uses no private database access.
 
 ## Rules that are easy to break
 

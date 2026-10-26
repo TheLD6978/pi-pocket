@@ -31,6 +31,7 @@ import { HttpError } from "./errors.ts";
 import type { HistoryAccess } from "./history.ts";
 import type { RequestActor } from "./extension-request.ts";
 import { isThinkingLevel, levelAtMost, resolveModel, THINKING_LEVELS } from "./models.ts";
+import { noWait } from "./limit-gate.ts";
 
 export interface ContextSummaryOptions {
     messages: readonly Message[];
@@ -539,7 +540,8 @@ export class ContextManagement implements ContextManagementApi {
             const events = app.models.streamSimple(
                 model,
                 { messages: clean([...request.messages]) },
-                {
+                // Auxiliary summaries must finish without an invisible provider-limit wait.
+                noWait({
                     ...app.streamSettings(),
                     ...(request.timeoutMs === undefined ? {} : { timeoutMs: request.timeoutMs }),
                     sessionId,
@@ -550,7 +552,7 @@ export class ContextManagement implements ContextManagementApi {
                     ...(thinking === "off" ? {} : { reasoning: thinking }),
                     cacheRetention: "none",
                     signal: stopped,
-                },
+                }),
             );
 
             for await (const event of events) {

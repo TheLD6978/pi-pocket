@@ -49,6 +49,7 @@ const State = defineDoc({
     history: "latest",
     fork: "initial",
     initial: () => ({ count: 0 }),
+    checkpointWhen: () => false,
 });
 
 test("history filters and list cursors use current catalog metadata and bind source and caller", async () => {

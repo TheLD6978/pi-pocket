@@ -33,7 +33,6 @@ import type {
     EntryRecord,
     JsonObject,
     Page,
-    TaskId,
     DocumentReader,
     Extension,
     ModelRef,

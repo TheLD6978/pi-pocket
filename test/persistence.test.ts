@@ -71,6 +71,7 @@ const State = defineDoc({
     history: "latest",
     fork: "initial",
     initial: () => ({ count: 0 }),
+    checkpointWhen: () => false,
 });
 
 /** Real SQLite/Storage with observable close ordering and injected faults at public provider boundaries. */

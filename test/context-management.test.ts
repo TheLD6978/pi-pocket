@@ -42,6 +42,7 @@ const State = defineDoc({
     history: "rewindable",
     fork: "asOf",
     initial: () => ({ count: 0 }),
+    checkpointWhen: () => false,
 });
 const Other = defineDoc({
     kind: "x.other.state",
@@ -50,12 +51,18 @@ const Other = defineDoc({
     history: "latest",
     fork: "initial",
     initial: () => ({ count: 0 }),
+    checkpointWhen: () => false,
 });
 const messages = [
     { role: "user" as const, content: "Summarize these tool results.", timestamp: 1 },
 ];
 const model = scriptedModel((input) => {
     const source = input.messages[0]?.content;
+
+    if (source === "limited-summary") {
+        throw new Error("529 overloaded_error");
+    }
+
     const response = fauxAssistantMessage(
         "A short summary.",
         source === "reported-error"
@@ -203,6 +210,23 @@ test("idle summaries deduplicate and charge the authenticated caller rather than
 
     assert.equal(spend?.people[guest.id], paid + first.response.usage.cost.total);
     await assert.rejects(cap.summarize("x.testing.once", { messages: [] }), { status: 409 });
+    scope.close();
+});
+
+test("an idle auxiliary summary reports a provider limit without waiting or retrying", async () => {
+    const id = await newSession(app);
+    const { scope, cap } = await bound(id);
+    const calls = model.state.callCount;
+    const result = await cap.summarize("x.testing.provider-limit", {
+        messages: [{ role: "user", content: "limited-summary", timestamp: 1 }],
+        timeoutMs: 1000,
+    });
+
+    assert.equal(result.response.stopReason, "error");
+    assert.match(result.response.errorMessage ?? "", /529 overloaded_error/);
+    assert.equal(model.state.callCount, calls + 1);
+    assert.equal(app.limits.waitFor(Number(id)), undefined);
+    assert.equal(app.limits.gates().length, 0);
     scope.close();
 });
 
